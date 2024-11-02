@@ -1,0 +1,23 @@
+{
+  "name": "eth-v1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon start.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@uniswap/sdk-core": "^5.9.0",
+    "@uniswap/smart-order-router": "^4.7.3",
+    "@uniswap/v3-sdk": "^3.18.1",
+    "dotenv": "^16.4.5",
+    "ethers": "^5.7.2",
+    "input": "^1.0.1",
+    "jsbi": "^3.2.5",
+    "nodemon": "^3.1.7",
+    "telegram": "^2.26.2"
+  }
+}
