@@ -1,8 +1,9 @@
 const 
-    { WETH_CONTRACT_ADDRESS }               = require("../utils/constants"),
-    { weiToEther, getContract }             = require("../utils/helper"),
-    { ethers }                              = require("ethers"),
-    abi                                     = require('../utils/abis/abi.json')
+    { WETH_CONTRACT_ADDRESS, SEPOLIA_CHAIN_ID }     = require("../utils/constants"),
+    { weiToEther, getContract }                     = require("../utils/helper"),
+    { ethers }                                      = require("ethers"),
+    { Token }                                       = require("@uniswap/sdk-core"),
+    abi                                             = require('../utils/abis/abi.json')
 ;
 
 class WalletService {
@@ -50,6 +51,18 @@ class WalletService {
             name        : await tokenContract.name(),
             balance     : await tokenContract.balanceOf(this.wallet.address)
         }
+    }
+
+    async createTargetToken(ca) {
+        const tokenDetails = await this.getTokenDetails(ca);
+
+        return new Token(
+            SEPOLIA_CHAIN_ID,
+            ca,
+            tokenDetails.decimals,
+            tokenDetails.symbol,
+            tokenDetails.name
+        );
     }
 }
 

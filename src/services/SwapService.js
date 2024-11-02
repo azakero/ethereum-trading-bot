@@ -37,23 +37,20 @@ class SwapService {
     constructor(providerService, walletService) {
         this.providerService    = providerService;
         this.walletService      = walletService;
+        this.factoryContract    = getContract(POOL_FACTORY_CONTRACT_ADDRESS, FACTORY_ABI, this.providerService.provider);
+        this.quoterContract     = getContract(QUOTER_CONTRACT_ADDRESS, QUOTER_ABI, this.providerService.provider);
     }
 
     async swap(amount) {
-        const 
-            provider                = this.providerService.provider,
-            factoryContract         = getContract(POOL_FACTORY_CONTRACT_ADDRESS, FACTORY_ABI, provider),
-            quoterContract          = getContract(QUOTER_CONTRACT_ADDRESS, QUOTER_ABI, provider),
-            amountIn                = etherToWei(amount.toString())
-        ;
+        const amountIn = etherToWei(amount.toString());
 
         try {
             await this.approveToken(WETH_TOKEN.address, TOKEN_IN_ABI, amountIn);
 
-            const USDC_TOKEN = await this.createTargetToken(USDC_CONTRACT_ADDRESS);
+            const USDC_TOKEN = await this.walletService.createTargetToken(USDC_CONTRACT_ADDRESS);
 
             const { poolContract, fee } = await this.getPoolInfo(
-                factoryContract, 
+                this.factoryContract, 
                 WETH_TOKEN, 
                 USDC_TOKEN
             );
@@ -63,12 +60,12 @@ class SwapService {
             console.log(`-------------------------------`)
             console.log(`Swap Amount: ${weiToEther(amountIn)}`);
 
-            const quotedAmountOut = await this.quoteAndLogSwap(quoterContract, fee, amountIn);
+            const quotedAmountOut = await this.quoteAndLogSwap(this.quoterContract, fee, amountIn);
     
             const params = await this.prepareSwapParams(poolContract, amountIn, quotedAmountOut);
             const swapRouter = new ethers.Contract(SWAP_ROUTER_CONTRACT_ADDRESS, SWAP_ROUTER_ABI, this.walletService.wallet);
 
-            // await this.executeSwap(swapRouter, params);
+            await this.executeSwap(swapRouter, params);
         } catch (error) {
             console.error("An error occurred:", error.message);
         }
@@ -191,18 +188,6 @@ class SwapService {
 
         console.log(`Swap Transaction Confirmed! https://sepolia.etherscan.io/tx/${receipt.transactionHash}`);
         console.log(`-------------------------------`)
-    }
-
-    async createTargetToken(ca) {
-        const tokenDetails = await this.walletService.getTokenDetails(ca);
-
-        return new Token(
-            SEPOLIA_CHAIN_ID,
-            ca,
-            tokenDetails.decimals,
-            tokenDetails.symbol,
-            tokenDetails.name
-        );
     }
 }
 
