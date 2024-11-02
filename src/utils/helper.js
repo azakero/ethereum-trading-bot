@@ -34,13 +34,13 @@ const weiToEther = (amount) => {
 }
 
 // amount = 0.5 ETH
-const etherToGwei = (amount) => {
-  return ethers.utils.parseUnits(amount, "gwei");
+const etherToGwei = (amount, unitName = 'gwei') => {
+  return ethers.utils.parseUnits(amount, unitName);
 }
 
 // amount = 5000000 GWEI
-const gweiToEther = (amount) => {
-  return ethers.utils.formatUnits(amount, "gwei");
+const gweiToEther = (amount, unitName = 'gwei') => {
+  return ethers.utils.formatUnits(amount, unitName);
 }
 
 const getContract = (ca, abi, provider) => {
