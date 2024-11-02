@@ -5,6 +5,7 @@ const
     ProviderService     = require('./src/services/ProviderService'),
     TelegramService     = require('./src/services/TelegramService')
 ;
+const { USDC_CONTRACT_ADDRESS } = require('./src/utils/constants');
 
 dotenv.config();
 
@@ -20,7 +21,12 @@ class App {
         // await this.telegramService.startClient();
 
         // await this.walletService.initiateWallet();
-        await this.swapService.swap(0.0002)
+        console.log('---------------------------------')
+        console.log('Starting swap operation....')
+        const USDC_TOKEN = await this.walletService.createTargetToken(USDC_CONTRACT_ADDRESS);
+
+        await this.swapService.swap(USDC_TOKEN, this.walletService.tokenDetails.balance, 'reverseSwap')
+        // await this.swapService.swap(USDC_TOKEN, 0.1, 'swap')
     }
 }
 

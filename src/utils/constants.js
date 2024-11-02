@@ -1,6 +1,10 @@
 const { Token } = require("@uniswap/sdk-core");
 
-const 
+const
+    SWAP_TYPE                                                   = {
+        SWAP                       : 'swap',
+        REVERSE_SWAP               : 'reverseSwap'
+    },
     WETH_SYMBOL                                                 = 'WETH',
     WETH_CONTRACT_ADDRESS                                       = '0xfff9976782d46cc05630d1f6ebab18b2324d6b14',
     USDC_CONTRACT_ADDRESS                                       = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
@@ -25,4 +29,5 @@ module.exports = {
     QUOTER_CONTRACT_ADDRESS,
     SWAP_ROUTER_CONTRACT_ADDRESS,
     POOL_FIE_TIERS,
+    SWAP_TYPE,
 }

@@ -1,8 +1,8 @@
 const 
     { Token, Percent, CurrencyAmount, ChainId, TradeType }          = require("@uniswap/sdk-core"),
-    { WETH_TOKEN, USDC_CONTRACT_ADDRESS, SEPOLIA_CHAIN_ID, POOL_FACTORY_CONTRACT_ADDRESS, SWAP_ROUTER_CONTRACT_ADDRESS, QUOTER_CONTRACT_ADDRESS, POOL_FIE_TIERS }         = require("../utils/constants"),
+    { WETH_TOKEN, USDC_CONTRACT_ADDRESS, SEPOLIA_CHAIN_ID, POOL_FACTORY_CONTRACT_ADDRESS, SWAP_ROUTER_CONTRACT_ADDRESS, QUOTER_CONTRACT_ADDRESS, POOL_FIE_TIERS, SWAP_TYPE }         = require("../utils/constants"),
     { AlphaRouter, SwapType }                                       = require("@uniswap/smart-order-router"),
-    { fromReadableAmount, etherToWei, weiToEther, getContract, gweiToEther }                                          = require("../utils/helper"),
+    { fromReadableAmount, etherToWei, weiToEther, getContract, gweiToEther, etherToGwei }                                          = require("../utils/helper"),
     { ethers } = require("ethers"),
     FACTORY_ABI = require('../utils/abis/factory.json'),
     QUOTER_ABI = require('../utils/abis/quoter.json'),
@@ -41,28 +41,44 @@ class SwapService {
         this.quoterContract     = getContract(QUOTER_CONTRACT_ADDRESS, QUOTER_ABI, this.providerService.provider);
     }
 
-    async swap(amount) {
-        const amountIn = etherToWei(amount.toString());
+    async swap(token, amount, type) {
+        if (type === SWAP_TYPE.SWAP) {
+            amount = etherToWei(amount.toString());
+        } else {
+            amount = etherToGwei(amount.toString(), token.decimals).toString();
+        }
 
         try {
-            await this.approveToken(WETH_TOKEN.address, TOKEN_IN_ABI, amountIn);
-
-            const USDC_TOKEN = await this.walletService.createTargetToken(USDC_CONTRACT_ADDRESS);
+            // always approve with base token
+            if (type === SWAP_TYPE.SWAP) {
+                await this.approveToken(WETH_TOKEN.address, TOKEN_IN_ABI, amount);
+            } else {
+                await this.approveToken(token.address, TOKEN_IN_ABI, amount);
+            }
 
             const { poolContract, fee } = await this.getPoolInfo(
                 this.factoryContract, 
-                WETH_TOKEN, 
-                USDC_TOKEN
+                type === SWAP_TYPE.SWAP ? WETH_TOKEN : token, 
+                type === SWAP_TYPE.SWAP ? token : WETH_TOKEN, 
             );
 
             console.log(`-------------------------------`)
-            console.log(`Fetching Quote for: ${WETH_TOKEN.symbol} to ${USDC_TOKEN.symbol}`);
+            console.log(`Fetching Quote for: ${
+                type === SWAP_TYPE.SWAP ? WETH_TOKEN.symbol : token.symbol
+            } to ${
+                type === SWAP_TYPE.SWAP ? token.symbol : WETH_TOKEN.symbol
+                
+            }`);
             console.log(`-------------------------------`)
-            console.log(`Swap Amount: ${weiToEther(amountIn)}`);
+            console.log(`Swap Amount: ${
+                type === SWAP_TYPE.SWAP ? weiToEther(amount) : gweiToEther(amount, token.decimals)
+            }`);
 
-            const quotedAmountOut = await this.quoteAndLogSwap(this.quoterContract, fee, amountIn);
+
+            const quotedAmountOut = await this.quoteAndLogSwap(this.quoterContract, fee, amount, token, type);
     
-            const params = await this.prepareSwapParams(poolContract, amountIn, quotedAmountOut);
+            const params = await this.prepareSwapParams(poolContract, amount, quotedAmountOut, token, type);
+
             const swapRouter = new ethers.Contract(SWAP_ROUTER_CONTRACT_ADDRESS, SWAP_ROUTER_ABI, this.walletService.wallet);
 
             await this.executeSwap(swapRouter, params);
@@ -130,34 +146,38 @@ class SwapService {
         return { poolContract, token0, token1, fee };
     }
 
-    async quoteAndLogSwap(quoterContract, fee, amountIn) {
+    async quoteAndLogSwap(quoterContract, fee, amountIn, token, type) {
         const quotedAmountOut = await quoterContract.callStatic.quoteExactInputSingle({
-            tokenIn: WETH.address,
-            tokenOut: USDC.address,
-            fee: fee,
-            recipient: this.walletService.wallet.address,
-            deadline: Math.floor(new Date().getTime() / 1000 + 60 * 10),
-            amountIn: amountIn,
-            sqrtPriceLimitX96: 0,
+            tokenIn             : type === SWAP_TYPE.SWAP ? WETH_TOKEN.address : token.address,
+            tokenOut            : type === SWAP_TYPE.SWAP ? token.address : WETH_TOKEN.address,
+            recipient           : this.walletService.wallet.address,
+            deadline            : Math.floor(new Date().getTime() / 1000 + 60 * 10),
+            sqrtPriceLimitX96   : 0,
+            amountIn,
+            fee,
         });
 
         console.log(`-------------------------------`)
-        console.log(`Estimated Gas Cost: ${gweiToEther(quotedAmountOut[3].toString())} WETH`)
+        console.log(`Estimated Gas Cost: ${gweiToEther(quotedAmountOut[3].toString())} ETH`)
         console.log(`-------------------------------`)
-        console.log(`Token Swap will result in: ${gweiToEther(quotedAmountOut[0].toString(), USDC.decimals)} ${USDC.symbol} for ${weiToEther(amountIn)} ${WETH.symbol}`);
-        
+
+        const finalTokenValue = type === SWAP_TYPE.SWAP ? gweiToEther(quotedAmountOut[0].toString(), token.decimals) + ` ${token.symbol}` : weiToEther(quotedAmountOut[0].toString()) + ` ${WETH_TOKEN.symbol}`;
+        const fromTokenValue = type === SWAP_TYPE.SWAP ? weiToEther(amountIn) + ` ${WETH_TOKEN.symbol}` : gweiToEther(amountIn, token.decimals) + ` ${token.symbol}`;
+
+        console.log(`Token Swap will result in: ${finalTokenValue} for ${fromTokenValue}`);
+
         return quotedAmountOut[0].toString();
     }
 
-    async prepareSwapParams(poolContract, amountIn, amountOut) {
+    async prepareSwapParams(poolContract, amountIn, amountOutMinimum, token, type) {
         return {
-            tokenIn: WETH.address,
-            tokenOut: USDC.address,
-            fee: await poolContract.fee(),
-            recipient: this.walletService.wallet.address,
-            amountIn: amountIn,
-            amountOutMinimum: amountOut,
-            sqrtPriceLimitX96: 0,
+            tokenIn                 : type === SWAP_TYPE.SWAP ? WETH_TOKEN.address : token.address,
+            tokenOut                : type === SWAP_TYPE.SWAP ? token.address : WETH_TOKEN.address,
+            fee                     : await poolContract.fee(),
+            recipient               : this.walletService.wallet.address,
+            sqrtPriceLimitX96       : 0,
+            amountOutMinimum,
+            amountIn,
         };
     }
     

@@ -1,6 +1,6 @@
 const 
     { WETH_CONTRACT_ADDRESS, SEPOLIA_CHAIN_ID }     = require("../utils/constants"),
-    { weiToEther, getContract }                     = require("../utils/helper"),
+    { weiToEther, getContract, gweiToEther }                     = require("../utils/helper"),
     { ethers }                                      = require("ethers"),
     { Token }                                       = require("@uniswap/sdk-core"),
     abi                                             = require('../utils/abis/abi.json')
@@ -10,6 +10,7 @@ class WalletService {
     constructor(providerService) {
         this.providerService   = providerService;
         this.wallet            = new ethers.Wallet(process.env.PRIVATE_KEY, this.providerService.provider);
+        this.tokenDetails      = null;
     }
 
     async initiateWallet() {
@@ -43,25 +44,31 @@ class WalletService {
     }
 
     async getTokenDetails(ca) {
-        const tokenContract = await getContract(ca, abi, this.providerService.provider);
+        const 
+            tokenContract   = await getContract(ca, abi, this.providerService.provider),
+            symbol          = await tokenContract.symbol(),
+            decimals        = await tokenContract.decimals(),
+            name            = await tokenContract.name(),
+            balance         = await tokenContract.balanceOf(this.wallet.address)
+        ;
 
         return {
-            symbol      : await tokenContract.symbol(),
-            decimals    : await tokenContract.decimals(),
-            name        : await tokenContract.name(),
-            balance     : await tokenContract.balanceOf(this.wallet.address)
+            symbol,
+            decimals,
+            name,
+            balance : gweiToEther(balance.toString(), decimals)
         }
     }
 
     async createTargetToken(ca) {
-        const tokenDetails = await this.getTokenDetails(ca);
+        this.tokenDetails = await this.getTokenDetails(ca);
 
         return new Token(
             SEPOLIA_CHAIN_ID,
             ca,
-            tokenDetails.decimals,
-            tokenDetails.symbol,
-            tokenDetails.name
+            this.tokenDetails.decimals,
+            this.tokenDetails.symbol,
+            this.tokenDetails.name
         );
     }
 }
