@@ -43,10 +43,15 @@ const gweiToEther = (amount) => {
   return ethers.utils.formatUnits(amount, "gwei");
 }
 
+const getContract = (ca, abi, provider) => {
+  return new ethers.Contract(ca, abi, provider)
+}
+
 module.exports = {
   fromReadableAmount,
   etherToWei,
   weiToEther,
   etherToGwei,
   gweiToEther,
+  getContract,
 }

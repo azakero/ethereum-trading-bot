@@ -1,7 +1,9 @@
-const { ethers } = require("ethers");
-const { fromReadableAmount, weiToEther, etherToWei, etherToGwei, gweiToEther } = require("../utils/conversion");
-const abi = require('../utils/abis/abi.json');
-const { WETH_CONTRACT_ADDRESS } = require("../utils/constants");
+const 
+    { WETH_CONTRACT_ADDRESS }               = require("../utils/constants"),
+    { weiToEther, getContract }             = require("../utils/helper"),
+    { ethers }                              = require("ethers"),
+    abi                                     = require('../utils/abis/abi.json')
+;
 
 class WalletService {
     constructor(providerService) {
@@ -10,9 +12,9 @@ class WalletService {
     }
 
     async initiateWallet() {
-        const details = await this.getWETHBalance();
+        const balance = await this.getTokenBalance('0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238');
         
-        console.log('details: ', details)
+        console.log('balance: ', balance)
     }
 
     async getETHBalance() {
@@ -23,7 +25,7 @@ class WalletService {
 
     async getWETHBalance() {
         const 
-            wethContract = await new ethers.Contract(WETH_CONTRACT_ADDRESS, abi, this.providerService.provider),
+            wethContract = await getContract(WETH_CONTRACT_ADDRESS, abi, this.providerService.provider),
             balanceInWei = await wethContract.balanceOf(this.wallet.address)
         ;
 
@@ -39,12 +41,8 @@ class WalletService {
         return balance;
     }
 
-    async getTokenContract(ca) {
-        return new ethers.Contract(ca, abi, this.providerService.provider)
-    }
-
     async getTokenDetails(ca) {
-        const tokenContract = await this.getTokenContract(ca);
+        const tokenContract = await getContract(ca, abi, this.providerService.provider);
 
         return {
             symbol      : await tokenContract.symbol(),

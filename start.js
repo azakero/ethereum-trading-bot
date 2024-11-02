@@ -19,8 +19,8 @@ class App {
     async init() {
         // await this.telegramService.startClient();
 
-        // await this.walletService.initiateWallet();
-        await this.swapService.swap(0.0001)
+        await this.walletService.initiateWallet();
+        // await this.swapService.swap(0.0001)
     }
 }
 

@@ -2,7 +2,7 @@ const
     { Token, Percent, CurrencyAmount, ChainId, TradeType }          = require("@uniswap/sdk-core"),
     { WETH_TOKEN, USDC_CONTRACT_ADDRESS, SEPOLIA_CHAIN_ID, POOL_FACTORY_CONTRACT_ADDRESS, SWAP_ROUTER_CONTRACT_ADDRESS, QUOTER_CONTRACT_ADDRESS }         = require("../utils/constants"),
     { AlphaRouter, SwapType }                                       = require("@uniswap/smart-order-router"),
-    { fromReadableAmount, etherToWei, weiToEther }                                          = require("../utils/conversion"),
+    { fromReadableAmount, etherToWei, weiToEther, getContract }                                          = require("../utils/helper"),
     FACTORY_ABI = require('../utils/abis/factory.json'),
     QUOTER_ABI = require('../utils/abis/quoter.json'),
     POOL_ABI = require('../utils/abis/pool.json'),
@@ -41,10 +41,9 @@ class SwapService {
 
     async swap(amount) {
         const provider              = this.providerService.provider;
-        const factoryContract       = new ethers.Contract(POOL_FACTORY_CONTRACT_ADDRESS, FACTORY_ABI, provider);
-        const quoterContract        = new ethers.Contract(QUOTER_CONTRACT_ADDRESS, QUOTER_ABI, provider);
+        const factoryContract       = getContract(POOL_FACTORY_CONTRACT_ADDRESS, FACTORY_ABI, provider);
+        const quoterContract        = getContract(QUOTER_CONTRACT_ADDRESS, QUOTER_ABI, provider);
 
-        const inputAmount = amount;
         const amountIn = etherToWei(amount.toString());
     
         try {
