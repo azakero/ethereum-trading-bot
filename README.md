@@ -1,1 +1,1 @@
-Solana Sniper Bot with Jupiter
+Ethereum Sniper Bot with Uniswap
