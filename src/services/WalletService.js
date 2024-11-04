@@ -13,12 +13,6 @@ class WalletService {
         this.tokenDetails      = null;
     }
 
-    async initiateWallet() {
-        const balance = await this.getTokenBalance('0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238');
-        
-        console.log('balance: ', balance)
-    }
-
     async getETHBalance() {
         const balanceInWei = await this.providerService.provider.getBalance(this.wallet.address);
 

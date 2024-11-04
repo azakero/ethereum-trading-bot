@@ -20,7 +20,6 @@ class App {
     async init() {
         // await this.telegramService.startClient();
 
-        // await this.walletService.initiateWallet();
         console.log('---------------------------------')
         console.log('Starting swap operation....')
         const USDC_TOKEN = await this.walletService.createTargetToken(USDC_CONTRACT_ADDRESS);

@@ -1,37 +1,26 @@
 const 
-    { Token, Percent, CurrencyAmount, ChainId, TradeType }          = require("@uniswap/sdk-core"),
-    { WETH_TOKEN, USDC_CONTRACT_ADDRESS, SEPOLIA_CHAIN_ID, POOL_FACTORY_CONTRACT_ADDRESS, SWAP_ROUTER_CONTRACT_ADDRESS, QUOTER_CONTRACT_ADDRESS, POOL_FIE_TIERS, SWAP_TYPE }         = require("../utils/constants"),
-    { AlphaRouter, SwapType }                                       = require("@uniswap/smart-order-router"),
-    { fromReadableAmount, etherToWei, weiToEther, getContract, gweiToEther, etherToGwei }                                          = require("../utils/helper"),
-    { ethers } = require("ethers"),
-    FACTORY_ABI = require('../utils/abis/factory.json'),
-    QUOTER_ABI = require('../utils/abis/quoter.json'),
-    POOL_ABI = require('../utils/abis/pool.json'),
-    TOKEN_IN_ABI = require('../utils/abis/weth.json'),
-    SWAP_ROUTER_ABI = require('../utils/abis/swaprouter.json')
+    { 
+        WETH_TOKEN, 
+        POOL_FACTORY_CONTRACT_ADDRESS, 
+        SWAP_ROUTER_CONTRACT_ADDRESS, 
+        QUOTER_CONTRACT_ADDRESS, 
+        SWAP_TYPE, 
+        POOL_FEE_TIERS 
+    }                           = require("../utils/constants"),
+    { 
+        etherToWei, 
+        weiToEther, 
+        getContract, 
+        gweiToEther, 
+        etherToGwei 
+    }                           = require("../utils/helper"),
+    { ethers }                  = require("ethers"),
+    FACTORY_ABI                 = require('../utils/abis/factory.json'),
+    QUOTER_ABI                  = require('../utils/abis/quoter.json'),
+    POOL_ABI                    = require('../utils/abis/pool.json'),
+    TOKEN_IN_ABI                = require('../utils/abis/weth.json'),
+    SWAP_ROUTER_ABI             = require('../utils/abis/swaprouter.json')
 ;
-
-const WETH = {
-    chainId: 11155111,
-    address: '0xfff9976782d46cc05630d1f6ebab18b2324d6b14',
-    decimals: 18,
-    symbol: 'WETH',
-    name: 'Wrapped Ether',
-    isToken: true,
-    isNative: true,
-    wrapped: true
-  }
-  
-const USDC = {
-    chainId: 11155111,
-    address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
-    decimals: 6,
-    symbol: 'USDC',
-    name: 'USD//C',
-    isToken: true,
-    isNative: true,
-    wrapped: false
-}
 
 class SwapService {
     constructor(providerService, walletService) {
@@ -67,13 +56,11 @@ class SwapService {
                 type === SWAP_TYPE.SWAP ? WETH_TOKEN.symbol : token.symbol
             } to ${
                 type === SWAP_TYPE.SWAP ? token.symbol : WETH_TOKEN.symbol
-                
             }`);
             console.log(`-------------------------------`)
             console.log(`Swap Amount: ${
                 type === SWAP_TYPE.SWAP ? weiToEther(amount) : gweiToEther(amount, token.decimals)
             }`);
-
 
             const quotedAmountOut = await this.quoteAndLogSwap(this.quoterContract, fee, amount, token, type);
     
@@ -129,7 +116,7 @@ class SwapService {
     }
 
     async getPoolInfo(factoryContract, tokenIn, tokenOut) {
-        const poolAddress = await factoryContract.getPool(tokenIn.address, tokenOut.address, POOL_FIE_TIERS[1]);
+        const poolAddress = await factoryContract.getPool(tokenIn.address, tokenOut.address, POOL_FEE_TIERS[1]);
 
         if (!poolAddress) {
             throw new Error("Failed to get pool address");
@@ -137,13 +124,11 @@ class SwapService {
 
         const poolContract = getContract(poolAddress, POOL_ABI, this.providerService.provider);
         
-        const [token0, token1, fee] = await Promise.all([
-            poolContract.token0(),
-            poolContract.token1(),
+        const [ fee ] = await Promise.all([
             poolContract.fee(),
         ]);
 
-        return { poolContract, token0, token1, fee };
+        return { poolContract, fee };
     }
 
     async quoteAndLogSwap(quoterContract, fee, amountIn, token, type) {

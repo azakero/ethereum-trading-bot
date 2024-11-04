@@ -47,6 +47,22 @@ const getContract = (ca, abi, provider) => {
   return new ethers.Contract(ca, abi, provider)
 }
 
+const transactionCostIncurred = (transactionData) => {
+  const 
+    gasUsed           = transactionData.gasUsed,
+    effectiveGasPrice = transactionData.effectiveGasPrice
+  ;
+
+  // this will return the cost in wei
+  const transactionCost = gasUsed.mul(effectiveGasPrice); 
+
+  return weiToEther(transactionCost);
+}
+
+const totalSwapCost = (transactionCostIncurred, wethAmount) => {
+  return transactionCostIncurred + wethAmount;
+}
+
 module.exports = {
   fromReadableAmount,
   etherToWei,
@@ -54,4 +70,6 @@ module.exports = {
   etherToGwei,
   gweiToEther,
   getContract,
+  transactionCostIncurred,
+  totalSwapCost
 }
