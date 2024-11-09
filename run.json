@@ -1,0 +1,11 @@
+{
+    "apps" : [
+        {
+            "name": "main-app",
+            "script": "./src/app.js",
+            "log_date_format": "YYYY-MM-DD HH:mm Z",
+            "output": "./logs/combined.log",
+            "error": "./logs/combined.log"
+        }
+    ]
+}

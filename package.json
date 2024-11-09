@@ -2,9 +2,9 @@
   "name": "eth-v1",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "./src/app.js",
   "scripts": {
-    "start": "nodemon start.js"
+    "start": "nodemon ./src/app.js"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +17,9 @@
     "ethers": "^5.7.2",
     "input": "^1.0.1",
     "jsbi": "^3.2.5",
-    "nodemon": "^3.1.7",
     "telegram": "^2.26.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
   }
 }

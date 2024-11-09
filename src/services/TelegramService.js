@@ -1,8 +1,10 @@
-const fs = require('fs');
-const input = require('input');
-const { TelegramClient } = require('telegram');
-const { StringSession } = require('telegram/sessions');
-const { NewMessage } = require('telegram/events');
+const 
+    { TelegramClient }      = require('telegram'),
+    { StringSession }       = require('telegram/sessions'),
+    { NewMessage }          = require('telegram/events'),
+    fs                      = require('fs'),
+    input                   = require('input')
+;
 
 class TelegramService {
     client;
@@ -17,10 +19,12 @@ class TelegramService {
 
     constructor(channel, swapService) {
         this.channel            = channel;
-        this.swapService        = swapService;
         this.apiId              = Number(process.env.TELEGRAM_API_ID);
         this.apiHash            = process.env.TELEGRAM_API_HASH;
         this.sessionFilePath    = './session.txt';
+        this.swapService        = swapService;
+        this.walletService      = swapService.walletService;
+        this.providerService    = swapService.providerService;
     }
 
     async startClient() {
@@ -100,6 +104,9 @@ class TelegramService {
                     console.log('NEW MESSAGE')
 
                     console.log(foundCall)
+                    // console.log(await this.walletService.getETHBalance())
+
+                    // throw new Error('NEW MESSAGE ERROR')
 
                     // const contractAddress = this.#extractAddress(foundCall);
 
