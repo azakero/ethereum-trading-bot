@@ -2,6 +2,7 @@ const
     { TelegramClient }      = require('telegram'),
     { StringSession }       = require('telegram/sessions'),
     { NewMessage }          = require('telegram/events'),
+    { ethers }              = require('ethers'),
     fs                      = require('fs'),
     input                   = require('input')
 ;
@@ -56,6 +57,7 @@ class TelegramService {
 
         fs.writeFileSync(this.sessionFilePath, savedSession, 'utf-8');
 
+        console.log('-------------------------------');
         console.log('Session saved.');
     }
 
@@ -65,34 +67,42 @@ class TelegramService {
         });
     }
 
-    #extractAddress(message) {
-        const solanaAddressRegex    = /[1-9A-HJ-NP-Za-km-z]{32,44}/g;
-        const solanaAddresses       = message.match(solanaAddressRegex) || [];
+    #extractEthereumAddress(message) {
+        const addressRegex = /(0x[a-fA-F0-9]{40})/;
 
-        if (solanaAddresses?.length === 0) {
-            const urlRegex = /https?:\/\/[^\s]+/g;
-            const urls = message.match(urlRegex) || [];
+        let match = message.match(addressRegex);
 
-            if (urls?.length === 0) {
-                return null;
+        if (!match) {
+            const urlRegex  = /https?:\/\/[^\s]+/g;
+            const urls      = message.match(urlRegex) || [];
+
+            for (const url of urls) {
+                const urlMatch = url.match(addressRegex);
+
+                if (urlMatch) {
+                    match = urlMatch;
+
+                    break;
+                }
             }
-
-            const addressInUrl = urls[0].match(solanaAddressRegex) || [];
-
-            if (addressInUrl?.length === 0) {
-                return null;
-            }
-
-            return addressInUrl[0];
         }
-        
-        return solanaAddresses[0];
+
+        const ethereumAddress = match ? match[0] : null;
+
+        if (ethereumAddress && ethers.utils.isAddress(ethereumAddress)) {
+            return ethereumAddress;
+        }  else if (ethereumAddress) {
+            throw new Error(`Invalid Ethereum address: ${ethereumAddress}`);
+        } else {
+            throw new Error('No Ethereum Address Found');
+        }
     }
 
     async #startListener() {
         const channel = await this.client.getEntity(this.channel);
 
         if (channel?.id) {
+            console.log('-------------------------------');
             console.log('Listening for new messages...');
 
             this.client.addEventHandler(async event => {
@@ -101,26 +111,28 @@ class TelegramService {
                 if (message && message.peerId.channelId.value === channel.id.value) {
                     const foundCall = message.message;
 
-                    console.log('NEW MESSAGE')
+                    console.log('-------------------------------');
+                    console.log('Message received. Extracting target token contract address...');
 
-                    console.log(foundCall)
-                    // console.log(await this.walletService.getETHBalance())
+                    const contractAddress = this.#extractEthereumAddress(foundCall);
 
-                    // throw new Error('NEW MESSAGE ERROR')
+                    console.log('-------------------------------');
+                    console.log('Successfully extracted contract address. Creating target token...')
 
-                    // const contractAddress = this.#extractAddress(foundCall);
+                    try {
+                        const targetToken = await this.walletService.createTargetToken(contractAddress);
 
-                    // console.log('contractAddress: ', contractAddress)
+                        if (!targetToken) {
+                            throw new Error('Failed to create target token');
+                        }
 
-                    // if (!contractAddress) {
-                    //     return;
-                    // }
+                        console.log('-------------------------------');
+                        console.log(`Token with name ${targetToken.name} and symbol ${targetToken.symbol} has been created. Initiating swap operation...`)
 
-                    // try {
-                    //     await this.swapService.buy(contractAddress);
-                    // } catch (error) {
-                    //     throw new Error(error);
-                    // }
+                        await this.swapService.swap(targetToken, 0.1, 'swap');
+                    } catch (error) {
+                        throw error;
+                    }
                 }
             }, new NewMessage({}));
         }

@@ -8,6 +8,7 @@ const
     WETH_SYMBOL                                                 = 'WETH',
     WETH_CONTRACT_ADDRESS                                       = '0xfff9976782d46cc05630d1f6ebab18b2324d6b14',
     USDC_CONTRACT_ADDRESS                                       = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+    UNI_CONTRACT_ADDRESS                                        = '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984',
     SEPOLIA_CHAIN_ID                                            = 11155111,
     WRAP_UNWRAP_ABI                                             = ['function deposit() payable', 'function withdraw(uint wad) public'],
     WETH_TOKEN                                                  = new Token(SEPOLIA_CHAIN_ID, WETH_CONTRACT_ADDRESS, 18, WETH_SYMBOL, 'Wrapped Ether'),
@@ -30,4 +31,5 @@ module.exports = {
     SWAP_ROUTER_CONTRACT_ADDRESS,
     POOL_FEE_TIERS,
     SWAP_TYPE,
+    UNI_CONTRACT_ADDRESS,
 }
