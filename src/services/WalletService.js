@@ -1,7 +1,7 @@
 const 
     { WETH_CONTRACT_ADDRESS, SEPOLIA_CHAIN_ID }     = require("../utils/constants"),
     { weiToEther, getContract, gweiToEther }        = require("../utils/helper"),
-    { ethers }                                      = require("ethers"),
+    { Wallet }                                      = require("ethers"),
     { Token }                                       = require("@uniswap/sdk-core"),
     abi                                             = require('../utils/abis/abi.json')
 ;
@@ -9,7 +9,7 @@ const
 class WalletService {
     constructor(providerService) {
         this.providerService   = providerService;
-        this.wallet            = new ethers.Wallet(process.env.PRIVATE_KEY, this.providerService.provider);
+        this.wallet            = new Wallet(process.env.PRIVATE_KEY).connect(this.providerService.provider);
         this.tokenDetails      = null;
     }
 
@@ -48,9 +48,9 @@ class WalletService {
 
         return {
             symbol,
-            decimals,
+            decimals: Number(decimals),
             name,
-            balance : gweiToEther(balance.toString(), decimals)
+            balance : gweiToEther(balance.toString(), Number(decimals))
         }
     }
 

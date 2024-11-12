@@ -1,10 +1,10 @@
 const 
-    { TelegramClient }      = require('telegram'),
-    { StringSession }       = require('telegram/sessions'),
-    { NewMessage }          = require('telegram/events'),
-    { ethers }              = require('ethers'),
-    fs                      = require('fs'),
-    input                   = require('input')
+    { TelegramClient }              = require('telegram'),
+    { StringSession }               = require('telegram/sessions'),
+    { NewMessage }                  = require('telegram/events'),
+    { isAddress }                   = require('ethers'),
+    fs                              = require('fs'),
+    input                           = require('input')
 ;
 
 class TelegramService {
@@ -89,7 +89,7 @@ class TelegramService {
 
         const ethereumAddress = match ? match[0] : null;
 
-        if (ethereumAddress && ethers.utils.isAddress(ethereumAddress)) {
+        if (ethereumAddress && isAddress(ethereumAddress)) {
             return ethereumAddress;
         }  else if (ethereumAddress) {
             throw new Error(`Invalid Ethereum address: ${ethereumAddress}`);

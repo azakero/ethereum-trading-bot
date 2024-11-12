@@ -14,7 +14,6 @@ const
         gweiToEther, 
         etherToGwei 
     }                           = require("../utils/helper"),
-    { ethers }                  = require("ethers"),
     FACTORY_ABI                 = require('../utils/abis/factory.json'),
     QUOTER_ABI                  = require('../utils/abis/quoter.json'),
     POOL_ABI                    = require('../utils/abis/pool.json'),
@@ -27,7 +26,7 @@ class SwapService {
         this.providerService    = providerService;
         this.walletService      = walletService;
         this.factoryContract    = getContract(POOL_FACTORY_CONTRACT_ADDRESS, FACTORY_ABI, this.providerService.provider);
-        this.quoterContract     = getContract(QUOTER_CONTRACT_ADDRESS, QUOTER_ABI, this.providerService.provider);
+        this.quoterContract     = getContract(QUOTER_CONTRACT_ADDRESS, QUOTER_ABI, this.walletService.wallet);
     }
 
     async swap(token, amount, type) {
@@ -63,10 +62,10 @@ class SwapService {
             }`);
 
             const quotedAmountOut = await this.quoteAndLogSwap(this.quoterContract, fee, amount, token, type);
-    
+
             const params = await this.prepareSwapParams(poolContract, amount, quotedAmountOut, token, type);
 
-            const swapRouter = new ethers.Contract(SWAP_ROUTER_CONTRACT_ADDRESS, SWAP_ROUTER_ABI, this.walletService.wallet);
+            const swapRouter = getContract(SWAP_ROUTER_CONTRACT_ADDRESS, SWAP_ROUTER_ABI, this.walletService.wallet);
 
             await this.executeSwap(swapRouter, params);
         } catch (error) {
@@ -80,35 +79,16 @@ class SwapService {
         try {
             const tokenContract = getContract(tokenAddress, tokenABI, wallet);
 
-            const approveTransaction = await tokenContract.populateTransaction.approve(
+            const transactionResponse = await tokenContract.approve(
                 SWAP_ROUTER_CONTRACT_ADDRESS,
                 amount
             );
     
-            const transactionResponse = await wallet.sendTransaction(approveTransaction);
+            const receipt = await transactionResponse.wait();
 
             console.log(`-------------------------------`)
-            console.log(`Sending Approval Transaction...`)
+            console.log(`Approval Transaction Confirmed! https://sepolia.etherscan.io/tx/${receipt.hash}`);
             console.log(`-------------------------------`)
-            console.log(`Transaction Sent: ${transactionResponse.hash}`)
-            console.log(`-------------------------------`)
-
-            let receipt = null
-
-            while (receipt === null) {
-                try {
-                    receipt = await this.providerService.provider.getTransactionReceipt(transactionResponse.hash)
-
-                    if (receipt === null) {
-                        continue
-                    }
-                } catch (e) {
-                    console.log(`Receipt error:`, e)
-                    break
-                }
-            }
-
-            console.log(`Approval Transaction Confirmed! https://sepolia.etherscan.io/tx/${receipt.transactionHash}`);
         } catch (error) {
             console.error("An error occurred during token approval:", error);
             throw new Error("Token approval failed");
@@ -132,14 +112,12 @@ class SwapService {
     }
 
     async quoteAndLogSwap(quoterContract, fee, amountIn, token, type) {
-        const quotedAmountOut = await quoterContract.callStatic.quoteExactInputSingle({
+        const quotedAmountOut = await quoterContract.quoteExactInputSingle.staticCall({
             tokenIn             : type === SWAP_TYPE.SWAP ? WETH_TOKEN.address : token.address,
             tokenOut            : type === SWAP_TYPE.SWAP ? token.address : WETH_TOKEN.address,
-            recipient           : this.walletService.wallet.address,
-            deadline            : Math.floor(new Date().getTime() / 1000 + 60 * 10),
-            sqrtPriceLimitX96   : 0,
-            amountIn,
-            fee,
+            sqrtPriceLimitX96   : 0n,  
+            amountIn            : BigInt(amountIn),
+            fee                 : BigInt(fee),
         });
 
         console.log(`-------------------------------`)
@@ -167,31 +145,16 @@ class SwapService {
     }
     
     async executeSwap(swapRouter, params) {
-        const transaction = await swapRouter.populateTransaction.exactInputSingle(params);
-        const transactionResponse = await this.walletService.wallet.sendTransaction(transaction);
-
+        const transaction = await swapRouter.exactInputSingle.populateTransaction(params);
+        
         console.log(`-------------------------------`)
         console.log(`Sending Swap Transaction...`)
         console.log(`-------------------------------`)
-        console.log(`Transaction Sent: ${transactionResponse.hash}`)
+        console.log(`Transaction Sent...`)
+        const receipt = await this.walletService.wallet.sendTransaction(transaction);
+        
         console.log(`-------------------------------`)
-
-        let receipt = null
-
-        while (receipt === null) {
-            try {
-                receipt = await this.providerService.provider.getTransactionReceipt(transactionResponse.hash)
-
-                if (receipt === null) {
-                    continue
-                }
-            } catch (e) {
-                console.log(`Receipt error:`, e)
-                break
-            }
-        }
-
-        console.log(`Swap Transaction Confirmed! https://sepolia.etherscan.io/tx/${receipt.transactionHash}`);
+        console.log(`Swap Transaction Confirmed! https://sepolia.etherscan.io/tx/${receipt.hash}`);
         console.log(`-------------------------------`)
     }
 }

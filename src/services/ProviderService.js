@@ -1,8 +1,8 @@
-const { ethers } = require("ethers");
+const { JsonRpcProvider } = require("ethers");
 
 class ProviderService {
     constructor() {
-        this.provider = new ethers.providers.JsonRpcProvider(process.env.RPC_ENDPOINT);
+        this.provider = new JsonRpcProvider(process.env.RPC_ENDPOINT);
     }
 }
 
