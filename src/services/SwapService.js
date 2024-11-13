@@ -5,20 +5,23 @@ const
         SWAP_ROUTER_CONTRACT_ADDRESS, 
         QUOTER_CONTRACT_ADDRESS, 
         SWAP_TYPE, 
-        POOL_FEE_TIERS 
+        POOL_FEE_TIERS, 
+        SEPOLIA_CHAIN_ID
     }                           = require("../utils/constants"),
     { 
         etherToWei, 
         weiToEther, 
         getContract, 
         gweiToEther, 
-        etherToGwei 
+        etherToGwei, 
+        convertAmount
     }                           = require("../utils/helper"),
     FACTORY_ABI                 = require('../utils/abis/factory.json'),
     QUOTER_ABI                  = require('../utils/abis/quoter.json'),
     POOL_ABI                    = require('../utils/abis/pool.json'),
     TOKEN_IN_ABI                = require('../utils/abis/weth.json'),
-    SWAP_ROUTER_ABI             = require('../utils/abis/swaprouter.json')
+    SWAP_ROUTER_ABI             = require('../utils/abis/swaprouter.json'),
+    { FlashbotsBundleProvider } = require("@flashbots/ethers-provider-bundle")
 ;
 
 class SwapService {
@@ -30,19 +33,17 @@ class SwapService {
     }
 
     async swap(token, amount, type) {
-        if (type === SWAP_TYPE.SWAP) {
-            amount = etherToWei(amount.toString());
-        } else {
-            amount = etherToGwei(amount.toString(), token.decimals).toString();
-        }
+        const flashBotProvider = await this.createFlashbotProvider();
+
+        amount = convertAmount(token, amount, type);
 
         try {
-            // always approve with base token
-            if (type === SWAP_TYPE.SWAP) {
-                await this.approveToken(WETH_TOKEN.address, TOKEN_IN_ABI, amount);
-            } else {
-                await this.approveToken(token.address, TOKEN_IN_ABI, amount);
-            }
+            const approvalTransaction = await this.getApprovalTransaction(token, amount, type);
+
+            const approveGasLimit = await this.providerService.provider.estimateGas({
+                ...approvalTransaction,
+                from: this.walletService.wallet.address
+            });
 
             const { poolContract, fee } = await this.getPoolInfo(
                 this.factoryContract, 
@@ -67,28 +68,79 @@ class SwapService {
 
             const swapRouter = getContract(SWAP_ROUTER_CONTRACT_ADDRESS, SWAP_ROUTER_ABI, this.walletService.wallet);
 
-            await this.executeSwap(swapRouter, params);
+            const swapTransaction = await this.getSwapTransaction(swapRouter, params);
+
+            const swapGasLimit = await this.providerService.provider.estimateGas({
+                ...swapTransaction,
+                from: this.walletService.wallet.address
+            });
+
+            const feeData = await this.providerService.provider.getFeeData();
+
+            const maxFeePerGas = feeData.maxFeePerGas * 2n;
+
+            const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas * 2n;
+    
+            console.log('maxPriorityFeePerGas: ', maxPriorityFeePerGas)
+
+            const bundle = [
+                {
+                    signer: this.walletService.wallet, 
+                    transaction: {
+                        ...approvalTransaction,
+                        chainId: SEPOLIA_CHAIN_ID,
+                        gasLimit: approveGasLimit,
+                        maxFeePerGas,
+                        maxPriorityFeePerGas,
+                    },
+                },
+                {
+                    signer: this.walletService.wallet,
+                    transaction: {
+                        ...swapTransaction,
+                        chainId: SEPOLIA_CHAIN_ID,
+                        gasLimit: swapGasLimit,
+                        maxFeePerGas,
+                        maxPriorityFeePerGas,
+                    },
+                }
+            ];
+    
+            const blockNumber       = await this.providerService.provider.getBlockNumber();
+
+            const bundleResponse    = await flashBotProvider.sendBundle(bundle, blockNumber + 1);
+    
+            console.log('bundleResponse: ', bundleResponse)
+
+            const bundleReceipt = await bundleResponse.wait();
+
+            console.log('bundleReceipt: ', bundleReceipt)
+            if (bundleReceipt === 1) {
+                console.log(`Flashbots Bundle Confirmed! Approval + Swap executed`);
+            } else {
+                console.log(`Flashbots Bundle Not Included`);
+            }
         } catch (error) {
             console.error("An error occurred:", error.message);
         }
     }
 
-    async approveToken(tokenAddress, tokenABI, amount) {
+    async approveTokenTransaction(tokenAddress, tokenABI, amount) {
         const wallet = this.walletService.wallet;
 
         try {
             const tokenContract = getContract(tokenAddress, tokenABI, wallet);
 
-            const transactionResponse = await tokenContract.approve(
+            const transaction = await tokenContract.approve.populateTransaction(
                 SWAP_ROUTER_CONTRACT_ADDRESS,
                 amount
             );
-    
-            const receipt = await transactionResponse.wait();
 
             console.log(`-------------------------------`)
-            console.log(`Approval Transaction Confirmed! https://sepolia.etherscan.io/tx/${receipt.hash}`);
+            console.log(`Approval Transaction Created`);
             console.log(`-------------------------------`)
+
+            return transaction;
         } catch (error) {
             console.error("An error occurred during token approval:", error);
             throw new Error("Token approval failed");
@@ -144,18 +196,36 @@ class SwapService {
         };
     }
     
-    async executeSwap(swapRouter, params) {
+    async getSwapTransaction(swapRouter, params) {
         const transaction = await swapRouter.exactInputSingle.populateTransaction(params);
         
         console.log(`-------------------------------`)
-        console.log(`Sending Swap Transaction...`)
+        console.log(`Swap Transaction Created`);
         console.log(`-------------------------------`)
-        console.log(`Transaction Sent...`)
-        const receipt = await this.walletService.wallet.sendTransaction(transaction);
-        
-        console.log(`-------------------------------`)
-        console.log(`Swap Transaction Confirmed! https://sepolia.etherscan.io/tx/${receipt.hash}`);
-        console.log(`-------------------------------`)
+
+        return transaction;
+    }
+
+    async createFlashbotProvider() {
+        return await FlashbotsBundleProvider.create(
+            this.providerService.provider, 
+            this.walletService.wallet,     
+            process.env.FLASHBOT_ENDPOINT,
+            'sepolia'  
+        );
+    }
+
+    async getApprovalTransaction(token, amount, type) {
+        let transaction;
+
+        // always approve with base token
+        if (type === SWAP_TYPE.SWAP) {
+            transaction = await this.approveTokenTransaction(WETH_TOKEN.address, TOKEN_IN_ABI, amount);
+        } else {
+            transaction = await this.approveTokenTransaction(token.address, TOKEN_IN_ABI, amount);
+        }
+
+        return transaction;
     }
 }
 

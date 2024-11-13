@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@flashbots/ethers-provider-bundle": "^1.0.0",
     "@uniswap/sdk-core": "^5.9.0",
     "@uniswap/smart-order-router": "^4.7.3",
     "@uniswap/v3-sdk": "^3.18.1",
