@@ -1,1 +1,1 @@
-Ethereum Sniper Bot with Uniswap
+Ethereum Token Swap Bot
